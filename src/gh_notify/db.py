@@ -29,6 +29,33 @@ CREATE TABLE IF NOT EXISTS notifications (
 
 CREATE INDEX IF NOT EXISTS idx_status ON notifications(status);
 CREATE INDEX IF NOT EXISTS idx_repo ON notifications(repo);
+
+CREATE TABLE IF NOT EXISTS work_items (
+    id          TEXT PRIMARY KEY,
+    title       TEXT NOT NULL,
+    status      TEXT NOT NULL DEFAULT 'active',
+    description TEXT NOT NULL DEFAULT '',
+    created_at  TIMESTAMP NOT NULL,
+    updated_at  TIMESTAMP NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS links (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    work_item_id  TEXT NOT NULL REFERENCES work_items(id),
+    entity_type   TEXT NOT NULL,
+    entity_url    TEXT NOT NULL,
+    entity_repo   TEXT NOT NULL DEFAULT '',
+    entity_ref    TEXT NOT NULL DEFAULT '',
+    relationship  TEXT NOT NULL DEFAULT 'related',
+    notes         TEXT NOT NULL DEFAULT '',
+    created_at    TIMESTAMP NOT NULL,
+    UNIQUE(work_item_id, entity_url)
+);
+
+CREATE INDEX IF NOT EXISTS idx_links_work_item ON links(work_item_id);
+CREATE INDEX IF NOT EXISTS idx_links_entity_url ON links(entity_url);
+CREATE INDEX IF NOT EXISTS idx_links_entity_ref ON links(entity_ref);
+CREATE INDEX IF NOT EXISTS idx_work_items_status ON work_items(status);
 """
 
 
@@ -210,6 +237,34 @@ def get_stats(conn: sqlite3.Connection) -> dict[str, Any]:
         "by_repo": by_repo,
         "by_reason": by_reason,
     }
+
+
+def find_notifications_by_repo(
+    conn: sqlite3.Connection,
+    repo: str,
+    number: int | None = None,
+) -> list[Notification]:
+    """Find notifications matching a repo and optional issue/PR number.
+
+    Cross-references subject_url which contains API URLs like
+    https://api.github.com/repos/owner/repo/pulls/123.
+    """
+    if number is not None:
+        # Match by subject_url containing the number (works for both pulls and issues API URLs)
+        rows = conn.execute(
+            """SELECT * FROM notifications
+               WHERE repo = ? AND (
+                   subject_url LIKE ? OR subject_url LIKE ?
+               )
+               ORDER BY updated_at DESC""",
+            (repo, f"%/pulls/{number}", f"%/issues/{number}"),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT * FROM notifications WHERE repo = ? ORDER BY updated_at DESC",
+            (repo,),
+        ).fetchall()
+    return [_row_to_notification(r) for r in rows]
 
 
 def connect(path: str | None = None) -> sqlite3.Connection:
