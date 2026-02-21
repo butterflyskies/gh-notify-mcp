@@ -223,6 +223,35 @@ def find_work_items_by_url(conn: sqlite3.Connection, url_or_ref: str) -> list[tu
     return results
 
 
+def find_work_items_by_ref_exact(conn: sqlite3.Connection, ref: str) -> list[tuple[WorkItem, Link]]:
+    """Find work items with links matching an exact entity_ref."""
+    rows = conn.execute(
+        """SELECT w.*, l.entity_type as l_entity_type, l.entity_url as l_entity_url,
+                  l.entity_repo as l_entity_repo, l.entity_ref as l_entity_ref,
+                  l.relationship as l_relationship, l.notes as l_notes,
+                  l.created_at as l_created_at, l.work_item_id as l_work_item_id
+           FROM work_items w
+           JOIN links l ON l.work_item_id = w.id
+           WHERE l.entity_ref = ?""",
+        (ref,),
+    ).fetchall()
+    results = []
+    for row in rows:
+        item = _row_to_work_item(row)
+        link = Link(
+            work_item_id=row["l_work_item_id"],
+            entity_type=row["l_entity_type"],
+            entity_url=row["l_entity_url"],
+            entity_repo=row["l_entity_repo"],
+            entity_ref=row["l_entity_ref"],
+            relationship=row["l_relationship"],
+            notes=row["l_notes"],
+            created_at=datetime.fromisoformat(row["l_created_at"]),
+        )
+        results.append((item, link))
+    return results
+
+
 def find_work_items_by_ref(conn: sqlite3.Connection, ref_pattern: str) -> list[tuple[WorkItem, Link]]:
     """Find work items with links matching a partial entity_ref (LIKE search)."""
     rows = conn.execute(

@@ -233,6 +233,42 @@ def test_work_item_link_to_work_item(tmp_db: sqlite3.Connection, sample_work_ite
     assert link.entity_url == "work_item://other"
 
 
+# --- exact ref matching ---
+
+
+def test_find_work_items_by_ref_exact_no_false_positives(
+    tmp_db: sqlite3.Connection, sample_work_item: WorkItem,
+):
+    """Exact ref search for 'owner/repo#123' must not match 'owner/repo#1234'."""
+    work_items_db.upsert_link(
+        tmp_db, sample_work_item.id,
+        "https://github.com/oraios/serena/issues/123", "tracks",
+    )
+    work_items_db.create_work_item(tmp_db, "other", "Other")
+    work_items_db.upsert_link(
+        tmp_db, "other",
+        "https://github.com/oraios/serena/issues/1234", "tracks",
+    )
+
+    results = work_items_db.find_work_items_by_ref_exact(tmp_db, "oraios/serena#123")
+    assert len(results) == 1
+    assert results[0][0].id == sample_work_item.id
+
+    # LIKE would wrongly match both — exact must not
+    results_1234 = work_items_db.find_work_items_by_ref_exact(tmp_db, "oraios/serena#1234")
+    assert len(results_1234) == 1
+    assert results_1234[0][0].id == "other"
+
+
+def test_find_work_items_by_ref_partial_still_works(
+    tmp_db: sqlite3.Connection, linked_work_item: WorkItem,
+):
+    """Partial ref search (LIKE) still works for genuinely partial queries like 'tasks#70'."""
+    results = work_items_db.find_work_items_by_ref(tmp_db, "tasks#70")
+    assert len(results) == 1
+    assert results[0][0].id == linked_work_item.id
+
+
 # --- notification cross-reference ---
 
 
@@ -250,3 +286,51 @@ def test_notification_cross_ref(
     notifications = find_notifications_by_repo(tmp_db, "oraios/serena")
     assert len(notifications) >= 1
     assert any(n.thread_id == "1003" for n in notifications)
+
+
+def test_notification_cross_ref_multiple_entities_same_repo(
+    tmp_db: sqlite3.Connection,
+    sample_work_item: WorkItem,
+):
+    """Multiple linked entities in the same repo should each produce notification queries."""
+    from datetime import datetime
+    from gh_notify.db import find_notifications_by_repo, upsert
+    from gh_notify.mcp_server import _format_work_item_context
+
+    # Link two entities in the same repo
+    work_items_db.upsert_link(
+        tmp_db, sample_work_item.id,
+        "https://github.com/oraios/serena/pull/1007", "tracks",
+    )
+    work_items_db.upsert_link(
+        tmp_db, sample_work_item.id,
+        "https://github.com/oraios/serena/issues/1055", "blocked_by",
+    )
+
+    # Create notifications for both entities
+    notifications = [
+        Notification(
+            thread_id="2001",
+            reason="mention",
+            repo="oraios/serena",
+            subject_title="Add global memories",
+            subject_type="PullRequest",
+            subject_url="https://api.github.com/repos/oraios/serena/pulls/1007",
+            updated_at=datetime(2026, 2, 20, 10, 0, 0),
+        ),
+        Notification(
+            thread_id="2002",
+            reason="author",
+            repo="oraios/serena",
+            subject_title="Memory persistence regression",
+            subject_type="Issue",
+            subject_url="https://api.github.com/repos/oraios/serena/issues/1055",
+            updated_at=datetime(2026, 2, 20, 11, 0, 0),
+        ),
+    ]
+    upsert(tmp_db, notifications)
+
+    # Format context — both notifications should appear
+    output = _format_work_item_context(tmp_db, sample_work_item)
+    assert "2001" in output, "Notification for PR #1007 should appear"
+    assert "2002" in output, "Notification for issue #1055 should appear"

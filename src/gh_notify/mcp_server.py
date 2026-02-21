@@ -392,8 +392,8 @@ def _resolve_from_parsed(
     # Find work items linked to this URL
     results = work_items_db.find_work_items_by_url(conn, canonical_url)
     if not results:
-        # Also try ref-based search since short ref → URL normalization may differ (PR vs issue)
-        results = work_items_db.find_work_items_by_ref(conn, short_ref)
+        # Also try exact ref match since short ref → URL normalization may differ (PR vs issue)
+        results = work_items_db.find_work_items_by_ref_exact(conn, short_ref)
 
     if results:
         lines.append("Work items:")
@@ -456,19 +456,20 @@ def _format_work_item_context(conn: sqlite3.Connection, item: WorkItem) -> str:
         lines.append("")
 
     # Cross-reference notifications for each linked entity
-    repos_checked: set[str] = set()
+    seen_threads: set[str] = set()
     notification_lines: list[str] = []
     for link in links:
-        if link.entity_repo and link.entity_repo not in repos_checked:
-            repos_checked.add(link.entity_repo)
+        if link.entity_repo:
             parsed = parse_github_url(link.entity_url)
             number = parsed.number if parsed else None
             notifications = db.find_notifications_by_repo(conn, link.entity_repo, number)
             for n in notifications[:3]:
-                status_tag = n.status.value.upper()
-                notification_lines.append(
-                    f"  [{status_tag}] {n.thread_id} | {n.repo} | {n.reason} | {n.subject_title}"
-                )
+                if n.thread_id not in seen_threads:
+                    seen_threads.add(n.thread_id)
+                    status_tag = n.status.value.upper()
+                    notification_lines.append(
+                        f"  [{status_tag}] {n.thread_id} | {n.repo} | {n.reason} | {n.subject_title}"
+                    )
 
     if notification_lines:
         lines.append("Related notifications:")
