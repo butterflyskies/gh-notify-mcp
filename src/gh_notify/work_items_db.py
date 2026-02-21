@@ -174,12 +174,22 @@ def delete_link(
     work_item_id: str,
     url_or_ref: str,
 ) -> bool:
-    """Remove a link. Returns False if not found."""
-    canonical_url, _, _, _ = _resolve_url_and_metadata(url_or_ref)
+    """Remove a link. Returns False if not found.
+
+    Tries canonical URL first, then falls back to exact entity_ref match
+    to handle short refs that resolve to /issues/ but the link was stored
+    as /pull/.
+    """
+    canonical_url, _, _, entity_ref = _resolve_url_and_metadata(url_or_ref)
     cursor = conn.execute(
         "DELETE FROM links WHERE work_item_id = ? AND entity_url = ?",
         (work_item_id, canonical_url),
     )
+    if cursor.rowcount == 0 and entity_ref:
+        cursor = conn.execute(
+            "DELETE FROM links WHERE work_item_id = ? AND entity_ref = ?",
+            (work_item_id, entity_ref),
+        )
     conn.commit()
     return cursor.rowcount > 0
 

@@ -177,6 +177,18 @@ def test_delete_link(tmp_db: sqlite3.Connection, linked_work_item: WorkItem):
     assert len(links) == 2
 
 
+def test_delete_link_via_short_ref_for_pr(tmp_db: sqlite3.Connection, sample_work_item: WorkItem):
+    """Short ref 'owner/repo#N' should unlink a PR even though it resolves to /issues/N URL."""
+    work_items_db.upsert_link(
+        tmp_db, sample_work_item.id,
+        "https://github.com/oraios/serena/pull/1007", "tracks",
+    )
+    # Delete using short ref — resolves to /issues/1007 which doesn't match /pull/1007
+    assert work_items_db.delete_link(tmp_db, sample_work_item.id, "oraios/serena#1007")
+    links = work_items_db.get_links_for_work_item(tmp_db, sample_work_item.id)
+    assert len(links) == 0
+
+
 def test_delete_link_not_found(tmp_db: sqlite3.Connection, sample_work_item: WorkItem):
     assert work_items_db.delete_link(tmp_db, sample_work_item.id, "nope") is False
 
