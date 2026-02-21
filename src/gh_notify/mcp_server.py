@@ -389,14 +389,18 @@ def _resolve_from_parsed(
     """Resolve context from a parsed URL: find linked work items + notification status."""
     lines = [f"Context for {short_ref}:", ""]
 
-    # Find work items linked to this URL
+    # Find work items linked to this URL, then merge with ref-exact matches
+    # to catch links stored under a different URL form (e.g. /pull/ vs /issues/).
     results = work_items_db.find_work_items_by_url(conn, canonical_url)
-    if not results and number is not None:
-        # For numbered entities (PRs/issues), try exact ref match since short ref
-        # normalizes to /issues/ but link may be stored as /pull/. Only safe when
-        # we have a number — non-numbered URLs (commits, repos) produce ambiguous
-        # short_refs like "owner/repo" that would false-match unrelated links.
-        results = work_items_db.find_work_items_by_ref_exact(conn, short_ref)
+    if number is not None:
+        # For numbered entities, also search by exact ref to find links stored
+        # under the other URL form. Only safe with a number — non-numbered URLs
+        # produce ambiguous short_refs like "owner/repo".
+        ref_results = work_items_db.find_work_items_by_ref_exact(conn, short_ref)
+        seen = {(wi.id, link.entity_url) for wi, link in results}
+        for wi, link in ref_results:
+            if (wi.id, link.entity_url) not in seen:
+                results.append((wi, link))
 
     if results:
         lines.append("Work items:")

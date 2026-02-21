@@ -69,7 +69,9 @@ def parse_github_url(url: str) -> ParsedGitHubURL | None:
     Handles both github.com and api.github.com URLs.
     Returns None if the URL doesn't match.
     """
-    m = _WEB_RE.match(url) or _API_RE.match(url)
+    # Strip query params and fragments before matching
+    clean_url = url.split("?")[0].split("#")[0]
+    m = _WEB_RE.match(clean_url) or _API_RE.match(clean_url)
     if not m:
         return None
 

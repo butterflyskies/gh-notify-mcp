@@ -75,6 +75,22 @@ def test_parse_actions_run_url():
     assert result.number == 12345
 
 
+def test_parse_repo_url_with_query_params():
+    """Query params on repo URL must not leak into repo name."""
+    result = parse_github_url("https://github.com/oraios/serena?tab=readme")
+    assert result is not None
+    assert result.repo == "serena"
+    assert result.full_repo == "oraios/serena"
+    assert result.canonical_url == "https://github.com/oraios/serena"
+
+
+def test_parse_pr_url_with_query_and_fragment():
+    result = parse_github_url("https://github.com/oraios/serena/pull/1007?diff=unified#discussion_r1")
+    assert result is not None
+    assert result.number == 1007
+    assert result.canonical_url == "https://github.com/oraios/serena/pull/1007"
+
+
 def test_parse_non_github_url_returns_none():
     assert parse_github_url("https://example.com/foo/bar") is None
 

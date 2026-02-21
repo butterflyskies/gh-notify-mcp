@@ -281,6 +281,27 @@ def test_find_work_items_by_ref_partial_still_works(
     assert results[0][0].id == linked_work_item.id
 
 
+def test_resolve_context_finds_both_url_forms(tmp_db: sqlite3.Connection):
+    """resolve_context should find work items linked via both /issues/N and /pull/N for same ref."""
+    from gh_notify.mcp_server import _resolve
+
+    work_items_db.create_work_item(tmp_db, "wi-issue", "Issue tracker")
+    work_items_db.upsert_link(
+        tmp_db, "wi-issue",
+        "https://github.com/oraios/serena/issues/1007", "tracks",
+    )
+    work_items_db.create_work_item(tmp_db, "wi-pr", "PR tracker")
+    work_items_db.upsert_link(
+        tmp_db, "wi-pr",
+        "https://github.com/oraios/serena/pull/1007", "tracks",
+    )
+
+    # Resolving by short ref should find BOTH work items
+    output = _resolve(tmp_db, "oraios/serena#1007")
+    assert "wi-issue" in output
+    assert "wi-pr" in output
+
+
 def test_resolve_context_non_numbered_url_no_false_match(tmp_db: sqlite3.Connection):
     """Non-numbered URL (number=None) must not false-match via ref fallback."""
     from gh_notify.mcp_server import _resolve
