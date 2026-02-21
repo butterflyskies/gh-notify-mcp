@@ -281,6 +281,23 @@ def test_find_work_items_by_ref_partial_still_works(
     assert results[0][0].id == linked_work_item.id
 
 
+def test_resolve_context_non_numbered_url_no_false_match(tmp_db: sqlite3.Connection):
+    """Non-numbered URL (number=None) must not false-match via ref fallback."""
+    from gh_notify.mcp_server import _resolve
+
+    work_items_db.create_work_item(tmp_db, "wi", "Some Item")
+    # Link a bare repo URL — entity_ref will be "oraios/serena"
+    work_items_db.upsert_link(
+        tmp_db, "wi",
+        "https://github.com/oraios/serena", "related",
+    )
+    # Resolve a commit URL in the same repo — short_ref is also "oraios/serena"
+    # The ref fallback should NOT match the repo link since the commit has no number
+    output = _resolve(tmp_db, "https://github.com/oraios/serena/commit/abc123")
+    # Should find via canonical URL match on commit, not via ref fallback to repo link
+    assert "related" not in output or "commit" in output
+
+
 # --- notification cross-reference ---
 
 

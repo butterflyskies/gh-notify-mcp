@@ -391,8 +391,11 @@ def _resolve_from_parsed(
 
     # Find work items linked to this URL
     results = work_items_db.find_work_items_by_url(conn, canonical_url)
-    if not results:
-        # Also try exact ref match since short ref → URL normalization may differ (PR vs issue)
+    if not results and number is not None:
+        # For numbered entities (PRs/issues), try exact ref match since short ref
+        # normalizes to /issues/ but link may be stored as /pull/. Only safe when
+        # we have a number — non-numbered URLs (commits, repos) produce ambiguous
+        # short_refs like "owner/repo" that would false-match unrelated links.
         results = work_items_db.find_work_items_by_ref_exact(conn, short_ref)
 
     if results:
