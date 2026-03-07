@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any
 
 from gh_notify.models import Link, WorkItem, WorkItemStatus
-from gh_notify.urls import detect_entity_type, normalize_url, parse_github_url, parse_short_ref
+from gh_notify.urls import detect_entity_type, parse_github_url, parse_short_ref
 
 
 def create_work_item(
@@ -298,6 +298,8 @@ def find_work_items_by_ref_exact(conn: sqlite3.Connection, ref: str) -> list[tup
 
 def find_work_items_by_ref(conn: sqlite3.Connection, ref_pattern: str) -> list[tuple[WorkItem, Link]]:
     """Find work items with links matching a partial entity_ref (LIKE search)."""
+    # Escape LIKE wildcards in user input to prevent unintended matching
+    escaped = ref_pattern.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
     rows = conn.execute(
         """SELECT w.*, l.entity_type as l_entity_type, l.entity_url as l_entity_url,
                   l.entity_repo as l_entity_repo, l.entity_ref as l_entity_ref,
@@ -305,8 +307,8 @@ def find_work_items_by_ref(conn: sqlite3.Connection, ref_pattern: str) -> list[t
                   l.created_at as l_created_at, l.work_item_id as l_work_item_id
            FROM work_items w
            JOIN links l ON l.work_item_id = w.id
-           WHERE l.entity_ref LIKE ?""",
-        (f"%{ref_pattern}%",),
+           WHERE l.entity_ref LIKE ? ESCAPE '\\'""",
+        (f"%{escaped}%",),
     ).fetchall()
     results = []
     for row in rows:

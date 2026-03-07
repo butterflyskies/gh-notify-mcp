@@ -24,25 +24,6 @@ class WorkItemStatus(enum.Enum):
     COMPLETED = "completed"
 
 
-class EntityType(enum.Enum):
-    """Type of entity linked to a work item."""
-
-    PR = "pr"
-    ISSUE = "issue"
-    NOTIFICATION = "notification"
-    CHECK_SUITE = "check_suite"
-    WORK_ITEM = "work_item"
-
-
-class Relationship(enum.Enum):
-    """How an entity relates to a work item."""
-
-    TRACKS = "tracks"
-    BLOCKED_BY = "blocked_by"
-    IMPLEMENTS = "implements"
-    RELATED = "related"
-
-
 @dataclass
 class Notification:
     """A GitHub notification with triage state."""
