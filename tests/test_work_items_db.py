@@ -193,6 +193,25 @@ def test_delete_link_not_found(tmp_db: sqlite3.Connection, sample_work_item: Wor
     assert work_items_db.delete_link(tmp_db, sample_work_item.id, "nope") is False
 
 
+def test_delete_link_repo_url_does_not_clobber_other_links(
+    tmp_db: sqlite3.Connection, sample_work_item: WorkItem,
+):
+    """Non-numbered ref fallback must not delete unrelated links sharing the same owner/repo."""
+    work_items_db.upsert_link(
+        tmp_db, sample_work_item.id,
+        "https://github.com/oraios/serena/pull/1007", "tracks",
+    )
+    # Try to unlink a repo-level URL that doesn't exist as a link;
+    # entity_ref is "oraios/serena" which is a prefix of the PR link's ref.
+    # The fallback must NOT match and delete the PR link.
+    assert work_items_db.delete_link(
+        tmp_db, sample_work_item.id,
+        "https://github.com/oraios/serena",
+    ) is False
+    links = work_items_db.get_links_for_work_item(tmp_db, sample_work_item.id)
+    assert len(links) == 1
+
+
 # --- cross-ref queries ---
 
 

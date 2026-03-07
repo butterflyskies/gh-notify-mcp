@@ -178,14 +178,15 @@ def delete_link(
 
     Tries canonical URL first, then falls back to exact entity_ref match
     to handle short refs that resolve to /issues/ but the link was stored
-    as /pull/.
+    as /pull/. Only falls back for numbered entities to avoid ambiguous
+    repo-level refs like "owner/repo" matching the wrong link.
     """
     canonical_url, _, _, entity_ref = _resolve_url_and_metadata(url_or_ref)
     cursor = conn.execute(
         "DELETE FROM links WHERE work_item_id = ? AND entity_url = ?",
         (work_item_id, canonical_url),
     )
-    if cursor.rowcount == 0 and entity_ref:
+    if cursor.rowcount == 0 and entity_ref and "#" in entity_ref:
         cursor = conn.execute(
             "DELETE FROM links WHERE work_item_id = ? AND entity_ref = ?",
             (work_item_id, entity_ref),
