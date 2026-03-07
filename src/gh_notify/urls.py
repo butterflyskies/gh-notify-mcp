@@ -21,6 +21,7 @@ class ParsedGitHubURL:
 
 # Regex for github.com web URLs:
 # /owner/repo/pull/123, /owner/repo/issues/123, etc.
+# Uses .match() so trailing subpaths like /files are ignored; [^/?#]+ stops at /.
 _WEB_RE = re.compile(
     r"https?://github\.com/"
     r"(?P<owner>[^/]+)/(?P<repo>[^/]+)"

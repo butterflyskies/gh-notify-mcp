@@ -299,9 +299,9 @@ async def link_entity(
     """
     conn = db.connect()
     try:
+        if work_items_db.get_work_item(conn, work_item_id) is None:
+            return f"Work item '{work_item_id}' not found."
         link = work_items_db.upsert_link(conn, work_item_id, url, relationship, notes)
-    except sqlite3.IntegrityError:
-        return f"Work item '{work_item_id}' not found."
     finally:
         conn.close()
 
