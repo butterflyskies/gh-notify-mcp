@@ -89,7 +89,13 @@ def parse_github_url(url: str) -> ParsedGitHubURL | None:
         except ValueError:
             # commit SHAs or other non-numeric identifiers
             number = None
-        short_ref = f"{full_repo}#{number}" if number is not None else full_repo
+        if number is not None:
+            short_ref = f"{full_repo}#{number}"
+        elif entity_type == "commit":
+            # Use @sha format to distinguish from repo-level refs
+            short_ref = f"{full_repo}@{number_str[:12]}"
+        else:
+            short_ref = full_repo
         web_path = _TYPE_TO_WEB_PATH.get(entity_type, kind)
         canonical = f"https://github.com/{full_repo}/{web_path}/{number_str}"
     else:

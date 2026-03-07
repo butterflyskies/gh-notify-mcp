@@ -102,8 +102,7 @@ def list_work_items(
     rows = conn.execute(query, params).fetchall()
     items = []
     for row in rows:
-        item = _row_to_work_item(row)
-        item.link_count = row["link_count"]
+        item = _row_to_work_item(row, link_count=row["link_count"])
         items.append(item)
     return items
 
@@ -170,7 +169,7 @@ def upsert_link(
             conn.commit()
             return Link(
                 work_item_id=work_item_id,
-                entity_type=entity_type,
+                entity_type=existing["entity_type"],
                 entity_url=existing["entity_url"],
                 entity_repo=entity_repo,
                 entity_ref=entity_ref,
@@ -224,8 +223,10 @@ def delete_link(
         (work_item_id, canonical_url),
     )
     if cursor.rowcount == 0 and entity_ref and "#" in entity_ref:
+        # Restrict fallback to pr/issue types to avoid deleting unrelated entity
+        # types (e.g. discussions/77) that share the same numbered entity_ref.
         cursor = conn.execute(
-            "DELETE FROM links WHERE work_item_id = ? AND entity_ref = ?",
+            "DELETE FROM links WHERE work_item_id = ? AND entity_ref = ? AND entity_type IN ('pr', 'issue')",
             (work_item_id, entity_ref),
         )
     conn.commit()
@@ -242,7 +243,11 @@ def get_links_for_work_item(conn: sqlite3.Connection, work_item_id: str) -> list
 
 
 def find_work_items_by_url(conn: sqlite3.Connection, url_or_ref: str) -> list[tuple[WorkItem, Link]]:
-    """Find work items linked to a given URL or short ref."""
+    """Find work items linked to a given URL or short ref.
+
+    Matches on canonical entity_url only — does NOT resolve PR/issue URL aliases.
+    For alias-aware lookup, combine with find_work_items_by_ref_exact (see resolve_context).
+    """
     canonical_url, _, _, _ = _resolve_url_and_metadata(url_or_ref)
     rows = conn.execute(
         """SELECT w.*, l.entity_type as l_entity_type, l.entity_url as l_entity_url,
@@ -337,7 +342,7 @@ def find_reverse_links(conn: sqlite3.Connection, work_item_id: str) -> list[tupl
     return find_work_items_by_url(conn, target_url)
 
 
-def _row_to_work_item(row: sqlite3.Row) -> WorkItem:
+def _row_to_work_item(row: sqlite3.Row, link_count: int = 0) -> WorkItem:
     return WorkItem(
         id=row["id"],
         title=row["title"],
@@ -345,6 +350,7 @@ def _row_to_work_item(row: sqlite3.Row) -> WorkItem:
         description=row["description"],
         created_at=datetime.fromisoformat(row["created_at"]),
         updated_at=datetime.fromisoformat(row["updated_at"]),
+        link_count=link_count,
     )
 
 

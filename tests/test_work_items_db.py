@@ -262,6 +262,25 @@ def test_delete_link_repo_url_does_not_clobber_other_links(
     assert len(links) == 1
 
 
+def test_delete_link_short_ref_does_not_clobber_discussion(
+    tmp_db: sqlite3.Connection, sample_work_item: WorkItem,
+):
+    """Deleting via short ref must not delete discussion links sharing the same number."""
+    work_items_db.upsert_link(
+        tmp_db, sample_work_item.id,
+        "https://github.com/oraios/serena/pull/77", "tracks",
+    )
+    work_items_db.upsert_link(
+        tmp_db, sample_work_item.id,
+        "https://github.com/oraios/serena/discussions/77", "related",
+    )
+    # Delete via short ref — should only delete the pr/issue link, not the discussion
+    assert work_items_db.delete_link(tmp_db, sample_work_item.id, "oraios/serena#77")
+    links = work_items_db.get_links_for_work_item(tmp_db, sample_work_item.id)
+    assert len(links) == 1
+    assert links[0].entity_type == "discussion"
+
+
 # --- cross-ref queries ---
 
 
@@ -384,8 +403,8 @@ def test_resolve_context_non_numbered_url_no_false_match(tmp_db: sqlite3.Connect
     # Resolve a commit URL in the same repo — short_ref is also "oraios/serena"
     # The ref fallback should NOT match the repo link since the commit has no number
     output = _resolve(tmp_db, "https://github.com/oraios/serena/commit/abc123")
-    # Should find via canonical URL match on commit, not via ref fallback to repo link
-    assert "related" not in output or "commit" in output
+    # The repo link's work item should NOT appear in commit URL resolution
+    assert "wi" not in output or "No context found" in output
 
 
 # --- notification cross-reference ---

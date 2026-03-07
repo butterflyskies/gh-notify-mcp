@@ -189,3 +189,26 @@ def test_detect_issue_from_short_ref():
 
 def test_detect_unknown_returns_none():
     assert detect_entity_type("random-string") is None
+
+
+# --- commit URL handling ---
+
+
+def test_parse_commit_url_short_ref_includes_sha():
+    """Commit URLs should produce a distinct short_ref with @sha, not bare repo."""
+    result = parse_github_url("https://github.com/oraios/serena/commit/abc123def456")
+    assert result is not None
+    assert result.entity_type == "commit"
+    assert result.number is None
+    assert result.short_ref == "oraios/serena@abc123def456"
+    assert result.full_repo == "oraios/serena"
+
+
+def test_parse_commit_url_sha_truncated_in_short_ref():
+    """Long SHAs are truncated to 12 chars in short_ref."""
+    sha = "abc123def456789012345678901234567890"
+    result = parse_github_url(f"https://github.com/oraios/serena/commit/{sha}")
+    assert result is not None
+    assert result.short_ref == "oraios/serena@abc123def456"
+    # But canonical URL keeps the full SHA
+    assert result.canonical_url == f"https://github.com/oraios/serena/commit/{sha}"
