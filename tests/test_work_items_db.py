@@ -166,6 +166,40 @@ def test_upsert_link_url_normalization(tmp_db: sqlite3.Connection, sample_work_i
     assert len(links) == 1  # same canonical URL = one link
 
 
+def test_upsert_link_pr_url_then_short_ref_no_duplicate(
+    tmp_db: sqlite3.Connection, sample_work_item: WorkItem,
+):
+    """Linking via /pull/N then via short ref (canonicalizes to /issues/N) must not create two rows."""
+    work_items_db.upsert_link(
+        tmp_db, sample_work_item.id,
+        "https://github.com/oraios/serena/pull/1007", "tracks",
+    )
+    work_items_db.upsert_link(
+        tmp_db, sample_work_item.id,
+        "oraios/serena#1007", "related",
+    )
+    links = work_items_db.get_links_for_work_item(tmp_db, sample_work_item.id)
+    assert len(links) == 1
+    assert links[0].relationship == "related"  # updated by second call
+
+
+def test_upsert_link_mixed_case_deduplicates(
+    tmp_db: sqlite3.Connection, sample_work_item: WorkItem,
+):
+    """Mixed-case owner/repo must canonicalize and not create duplicate links."""
+    work_items_db.upsert_link(
+        tmp_db, sample_work_item.id,
+        "https://github.com/Oraios/Serena/pull/1007", "tracks",
+    )
+    work_items_db.upsert_link(
+        tmp_db, sample_work_item.id,
+        "https://github.com/oraios/serena/pull/1007", "related",
+    )
+    links = work_items_db.get_links_for_work_item(tmp_db, sample_work_item.id)
+    assert len(links) == 1
+    assert links[0].relationship == "related"
+
+
 def test_delete_link(tmp_db: sqlite3.Connection, linked_work_item: WorkItem):
     assert work_items_db.delete_link(
         tmp_db, linked_work_item.id,

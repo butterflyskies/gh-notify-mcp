@@ -75,8 +75,8 @@ def parse_github_url(url: str) -> ParsedGitHubURL | None:
     if not m:
         return None
 
-    owner = m.group("owner")
-    repo = m.group("repo")
+    owner = m.group("owner").lower()
+    repo = m.group("repo").lower()
     kind = m.group("kind")
     number_str = m.group("number")
     full_repo = f"{owner}/{repo}"
@@ -117,8 +117,8 @@ def parse_short_ref(ref: str) -> ParsedGitHubURL | None:
     if not m:
         return None
 
-    owner = m.group("owner")
-    repo = m.group("repo")
+    owner = m.group("owner").lower()
+    repo = m.group("repo").lower()
     number = int(m.group("number"))
     full_repo = f"{owner}/{repo}"
 

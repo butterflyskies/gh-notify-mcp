@@ -137,10 +137,43 @@ def upsert_link(
     relationship: str = "related",
     notes: str = "",
 ) -> Link:
-    """Link an entity to a work item. Idempotent: re-linking updates relationship/notes."""
+    """Link an entity to a work item. Idempotent: re-linking updates relationship/notes.
+
+    Deduplicates on both entity_url and entity_ref to prevent the same
+    GitHub entity (e.g. a PR linked via /pull/N and then via short ref
+    which canonicalizes to /issues/N) from creating duplicate rows.
+    """
     canonical_url, entity_type, entity_repo, entity_ref = _resolve_url_and_metadata(url_or_ref)
 
     now = datetime.now().isoformat()
+    # Check for existing link with same entity_ref (handles PR/issue URL ambiguity)
+    if entity_ref and "#" in entity_ref:
+        existing = conn.execute(
+            "SELECT id, entity_url FROM links WHERE work_item_id = ? AND entity_ref = ?",
+            (work_item_id, entity_ref),
+        ).fetchone()
+        if existing and existing["entity_url"] != canonical_url:
+            # Same entity linked under a different URL form — update in place
+            conn.execute(
+                """UPDATE links SET relationship = ?, notes = ?
+                   WHERE id = ?""",
+                (relationship, notes, existing["id"]),
+            )
+            conn.execute(
+                "UPDATE work_items SET updated_at = ? WHERE id = ?",
+                (now, work_item_id),
+            )
+            conn.commit()
+            return Link(
+                work_item_id=work_item_id,
+                entity_type=entity_type,
+                entity_url=existing["entity_url"],
+                entity_repo=entity_repo,
+                entity_ref=entity_ref,
+                relationship=relationship,
+                notes=notes,
+                created_at=datetime.fromisoformat(now),
+            )
     conn.execute(
         """INSERT INTO links (work_item_id, entity_type, entity_url, entity_repo, entity_ref,
                               relationship, notes, created_at)

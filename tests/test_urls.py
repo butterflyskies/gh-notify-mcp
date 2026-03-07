@@ -91,6 +91,16 @@ def test_parse_pr_url_with_query_and_fragment():
     assert result.canonical_url == "https://github.com/oraios/serena/pull/1007"
 
 
+def test_parse_github_url_case_normalized():
+    result = parse_github_url("https://github.com/Oraios/Serena/pull/42")
+    assert result is not None
+    assert result.owner == "oraios"
+    assert result.repo == "serena"
+    assert result.full_repo == "oraios/serena"
+    assert result.canonical_url == "https://github.com/oraios/serena/pull/42"
+    assert result.short_ref == "oraios/serena#42"
+
+
 def test_parse_non_github_url_returns_none():
     assert parse_github_url("https://example.com/foo/bar") is None
 
@@ -132,6 +142,16 @@ def test_parse_short_ref_whitespace_stripped():
     result = parse_short_ref("  oraios/serena#1007  ")
     assert result is not None
     assert result.number == 1007
+
+
+def test_parse_short_ref_case_normalized():
+    result = parse_short_ref("Oraios/Serena#42")
+    assert result is not None
+    assert result.owner == "oraios"
+    assert result.repo == "serena"
+    assert result.full_repo == "oraios/serena"
+    assert result.short_ref == "oraios/serena#42"
+    assert result.canonical_url == "https://github.com/oraios/serena/issues/42"
 
 
 # --- normalize_url ---
