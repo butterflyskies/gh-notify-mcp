@@ -200,6 +200,22 @@ def test_upsert_link_mixed_case_deduplicates(
     assert links[0].relationship == "related"
 
 
+def test_upsert_link_different_entity_types_same_number_not_collapsed(
+    tmp_db: sqlite3.Connection, sample_work_item: WorkItem,
+):
+    """Discussion #77 and issue #77 must not be collapsed despite sharing entity_ref."""
+    work_items_db.upsert_link(
+        tmp_db, sample_work_item.id,
+        "https://github.com/oraios/serena/issues/77", "tracks",
+    )
+    work_items_db.upsert_link(
+        tmp_db, sample_work_item.id,
+        "https://github.com/oraios/serena/discussions/77", "related",
+    )
+    links = work_items_db.get_links_for_work_item(tmp_db, sample_work_item.id)
+    assert len(links) == 2
+
+
 def test_delete_link(tmp_db: sqlite3.Connection, linked_work_item: WorkItem):
     assert work_items_db.delete_link(
         tmp_db, linked_work_item.id,

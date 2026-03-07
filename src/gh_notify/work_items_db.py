@@ -146,14 +146,18 @@ def upsert_link(
     canonical_url, entity_type, entity_repo, entity_ref = _resolve_url_and_metadata(url_or_ref)
 
     now = datetime.now().isoformat()
-    # Check for existing link with same entity_ref (handles PR/issue URL ambiguity)
-    if entity_ref and "#" in entity_ref:
+    # Deduplicate PR/issue URL aliases: /pull/N and /issues/N share the same
+    # entity_ref (owner/repo#N) because short refs can't distinguish them.
+    # Only collapse when both sides are pr or issue to avoid merging unrelated
+    # entity types (e.g. discussions/77 vs issues/77) that happen to share a number.
+    _pr_issue = {"pr", "issue"}
+    if entity_ref and "#" in entity_ref and entity_type in _pr_issue:
         existing = conn.execute(
-            "SELECT id, entity_url FROM links WHERE work_item_id = ? AND entity_ref = ?",
+            "SELECT id, entity_url, entity_type FROM links WHERE work_item_id = ? AND entity_ref = ?",
             (work_item_id, entity_ref),
         ).fetchone()
-        if existing and existing["entity_url"] != canonical_url:
-            # Same entity linked under a different URL form — update in place
+        if existing and existing["entity_url"] != canonical_url and existing["entity_type"] in _pr_issue:
+            # Same PR/issue linked under a different URL form — update in place
             conn.execute(
                 """UPDATE links SET relationship = ?, notes = ?
                    WHERE id = ?""",

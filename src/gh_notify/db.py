@@ -244,20 +244,19 @@ def find_notifications_by_repo(
     repo: str,
     number: int | None = None,
 ) -> list[Notification]:
-    """Find notifications matching a repo and optional issue/PR number.
+    """Find notifications matching a repo and optional entity number/ID.
 
     Cross-references subject_url which contains API URLs like
     https://api.github.com/repos/owner/repo/pulls/123.
+    Matches any API path ending in the number (pulls, issues, check-suites, etc.).
     """
     if number is not None:
-        # Match by subject_url containing the number (works for both pulls and issues API URLs)
+        # Match subject_url ending with /<number> after any API path segment
         rows = conn.execute(
             """SELECT * FROM notifications
-               WHERE repo = ? AND (
-                   subject_url LIKE ? OR subject_url LIKE ?
-               )
+               WHERE repo = ? AND subject_url LIKE ?
                ORDER BY updated_at DESC""",
-            (repo, f"%/pulls/{number}", f"%/issues/{number}"),
+            (repo, f"%/{number}"),
         ).fetchall()
     else:
         rows = conn.execute(
