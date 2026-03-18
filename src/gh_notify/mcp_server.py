@@ -412,9 +412,9 @@ def _resolve_from_parsed(
             lines.append(f"    {link.relationship}: {link.entity_ref or link.entity_url}")
         lines.append("")
 
-    # Cross-reference notifications — only when we have a number to filter by,
-    # or for repo-level URLs. Without a number, we'd return ALL notifications
-    # for the repo which is noisy and misleading (e.g. for commit URLs).
+    # Cross-reference notifications when we have a specific entity number, or
+    # for repo-level URLs (general context, capped by LIMIT 10 + [:5] display).
+    # Skip for commit URLs (short_ref contains @) where repo-wide results are noise.
     if full_repo and (number is not None or "@" not in short_ref):
         notifications = db.find_notifications_by_repo(conn, full_repo, number)
         if notifications:

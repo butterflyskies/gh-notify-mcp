@@ -325,7 +325,8 @@ def find_work_items_by_ref(conn: sqlite3.Connection, ref_pattern: str) -> list[t
                   l.created_at as l_created_at, l.work_item_id as l_work_item_id
            FROM work_items w
            JOIN links l ON l.work_item_id = w.id
-           WHERE l.entity_ref LIKE ? ESCAPE '\\'""",
+           WHERE l.entity_ref LIKE ? ESCAPE '\\'
+           ORDER BY w.updated_at DESC LIMIT 50""",
         (f"%{escaped}%",),
     ).fetchall()
     results = []
