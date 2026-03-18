@@ -468,17 +468,21 @@ def _format_work_item_context(conn: sqlite3.Connection, item: WorkItem) -> str:
     seen_threads: set[str] = set()
     notification_lines: list[str] = []
     for link in links:
+        if len(notification_lines) >= 10:
+            break
         if link.entity_repo:
             parsed = parse_github_url(link.entity_url)
             number = parsed.number if parsed else None
             notifications = db.find_notifications_by_repo(conn, link.entity_repo, number)
-            for n in notifications[:3]:
+            for n in notifications:
                 if n.thread_id not in seen_threads:
                     seen_threads.add(n.thread_id)
                     status_tag = n.status.value.upper()
                     notification_lines.append(
                         f"  [{status_tag}] {n.thread_id} | {n.repo} | {n.reason} | {n.subject_title}"
                     )
+                    if len(notification_lines) >= 10:
+                        break
 
     if notification_lines:
         lines.append("Related notifications:")

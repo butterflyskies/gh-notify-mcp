@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any
 
 from gh_notify.models import Link, WorkItem, WorkItemStatus
-from gh_notify.urls import detect_entity_type, parse_github_url, parse_short_ref
+from gh_notify.urls import parse_github_url, parse_short_ref
 
 
 def create_work_item(
@@ -125,8 +125,7 @@ def _resolve_url_and_metadata(url_or_ref: str) -> tuple[str, str, str, str]:
         return parsed.canonical_url, parsed.entity_type, parsed.full_repo, parsed.short_ref
 
     # Fallback: use as-is
-    entity_type = detect_entity_type(url_or_ref) or "unknown"
-    return url_or_ref, entity_type, "", ""
+    return url_or_ref, "unknown", "", ""
 
 
 def upsert_link(
@@ -152,7 +151,7 @@ def upsert_link(
     _pr_issue = {"pr", "issue"}
     if entity_ref and "#" in entity_ref and entity_type in _pr_issue:
         existing = conn.execute(
-            "SELECT id, entity_url, entity_type FROM links WHERE work_item_id = ? AND entity_ref = ?",
+            "SELECT id, entity_url, entity_type, created_at FROM links WHERE work_item_id = ? AND entity_ref = ?",
             (work_item_id, entity_ref),
         ).fetchone()
         if existing and existing["entity_url"] != canonical_url and existing["entity_type"] in _pr_issue:
@@ -175,7 +174,7 @@ def upsert_link(
                 entity_ref=entity_ref,
                 relationship=relationship,
                 notes=notes,
-                created_at=datetime.fromisoformat(now),
+                created_at=datetime.fromisoformat(existing["created_at"]),
             )
     conn.execute(
         """INSERT INTO links (work_item_id, entity_type, entity_url, entity_repo, entity_ref,
@@ -276,17 +275,27 @@ def find_work_items_by_url(conn: sqlite3.Connection, url_or_ref: str) -> list[tu
     return results
 
 
-def find_work_items_by_ref_exact(conn: sqlite3.Connection, ref: str) -> list[tuple[WorkItem, Link]]:
-    """Find work items with links matching an exact entity_ref."""
+def find_work_items_by_ref_exact(
+    conn: sqlite3.Connection,
+    ref: str,
+    entity_types: tuple[str, ...] = ("pr", "issue"),
+) -> list[tuple[WorkItem, Link]]:
+    """Find work items with links matching an exact entity_ref.
+
+    entity_types restricts results to the given link types (default: pr and issue)
+    to avoid false matches on entity types that share the same numbered ref
+    (e.g. discussions/77 vs issues/77).
+    """
+    placeholders = ",".join("?" * len(entity_types))
     rows = conn.execute(
-        """SELECT w.*, l.entity_type as l_entity_type, l.entity_url as l_entity_url,
+        f"""SELECT w.*, l.entity_type as l_entity_type, l.entity_url as l_entity_url,
                   l.entity_repo as l_entity_repo, l.entity_ref as l_entity_ref,
                   l.relationship as l_relationship, l.notes as l_notes,
                   l.created_at as l_created_at, l.work_item_id as l_work_item_id
            FROM work_items w
            JOIN links l ON l.work_item_id = w.id
-           WHERE l.entity_ref = ?""",
-        (ref,),
+           WHERE l.entity_ref = ? AND l.entity_type IN ({placeholders})""",
+        (ref, *entity_types),
     ).fetchall()
     results = []
     for row in rows:

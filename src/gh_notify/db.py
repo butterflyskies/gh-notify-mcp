@@ -255,12 +255,12 @@ def find_notifications_by_repo(
         rows = conn.execute(
             """SELECT * FROM notifications
                WHERE repo = ? COLLATE NOCASE AND subject_url LIKE ? ESCAPE '\\'
-               ORDER BY updated_at DESC""",
+               ORDER BY updated_at DESC LIMIT 10""",
             (repo, f"%/{number}"),
         ).fetchall()
     else:
         rows = conn.execute(
-            "SELECT * FROM notifications WHERE repo = ? COLLATE NOCASE ORDER BY updated_at DESC",
+            "SELECT * FROM notifications WHERE repo = ? COLLATE NOCASE ORDER BY updated_at DESC LIMIT 10",
             (repo,),
         ).fetchall()
     return [_row_to_notification(r) for r in rows]

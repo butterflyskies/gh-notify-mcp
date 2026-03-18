@@ -404,7 +404,7 @@ def test_resolve_context_non_numbered_url_no_false_match(tmp_db: sqlite3.Connect
     # The ref fallback should NOT match the repo link since the commit has no number
     output = _resolve(tmp_db, "https://github.com/oraios/serena/commit/abc123")
     # The repo link's work item should NOT appear in commit URL resolution
-    assert "wi" not in output or "No context found" in output
+    assert "No context found" in output
 
 
 # --- notification cross-reference ---
