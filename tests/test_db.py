@@ -164,3 +164,27 @@ def test_get_thread_found(tmp_db: sqlite3.Connection, sample_notifications: list
 
 def test_get_thread_not_found(tmp_db: sqlite3.Connection):
     assert get_thread(tmp_db, "nonexistent") is None
+
+
+def test_find_notifications_by_repo_matches_check_suites(
+    tmp_db: sqlite3.Connection,
+):
+    """Notifications with check-suite subject_urls should be found by number."""
+    from gh_notify.db import find_notifications_by_repo
+
+    notifications = [
+        Notification(
+            thread_id="5001",
+            reason="ci_activity",
+            repo="oraios/serena",
+            subject_title="CI run 99999",
+            subject_type="CheckSuite",
+            subject_url="https://api.github.com/repos/oraios/serena/check-suites/99999",
+            updated_at=datetime(2026, 2, 20, 10, 0, 0),
+        ),
+    ]
+    upsert(tmp_db, notifications)
+
+    found = find_notifications_by_repo(tmp_db, "oraios/serena", 99999)
+    assert len(found) == 1
+    assert found[0].thread_id == "5001"

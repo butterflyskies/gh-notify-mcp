@@ -16,6 +16,14 @@ class Status(enum.Enum):
     DISMISSED = "dismissed"
 
 
+class WorkItemStatus(enum.Enum):
+    """Work item lifecycle status."""
+
+    ACTIVE = "active"
+    PAUSED = "paused"
+    COMPLETED = "completed"
+
+
 @dataclass
 class Notification:
     """A GitHub notification with triage state."""
@@ -34,3 +42,30 @@ class Notification:
     notes: str = ""
     status_changed_at: datetime | None = None
     first_seen_at: datetime = field(default_factory=datetime.now)
+
+
+@dataclass
+class WorkItem:
+    """A named work stream with linked entities."""
+
+    id: str
+    title: str
+    status: WorkItemStatus = WorkItemStatus.ACTIVE
+    description: str = ""
+    created_at: datetime = field(default_factory=datetime.now)
+    updated_at: datetime = field(default_factory=datetime.now)
+    link_count: int = 0  # populated by list queries
+
+
+@dataclass
+class Link:
+    """A link between a work item and an external entity."""
+
+    work_item_id: str
+    entity_type: str
+    entity_url: str
+    entity_repo: str = ""
+    entity_ref: str = ""
+    relationship: str = "related"
+    notes: str = ""
+    created_at: datetime = field(default_factory=datetime.now)

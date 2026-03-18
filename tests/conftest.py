@@ -10,7 +10,8 @@ from pathlib import Path
 import pytest
 
 from gh_notify.db import connect
-from gh_notify.models import Notification, Status
+from gh_notify.models import Notification, Status, WorkItem, WorkItemStatus
+from gh_notify import work_items_db
 
 
 @pytest.fixture
@@ -61,3 +62,36 @@ def sample_notifications() -> list[Notification]:
             updated_at=datetime(2026, 2, 20, 8, 0, 0),
         ),
     ]
+
+
+@pytest.fixture
+def sample_work_item(tmp_db: sqlite3.Connection) -> WorkItem:
+    """A single work item in the database."""
+    return work_items_db.create_work_item(
+        tmp_db,
+        id="serena-global-memories",
+        title="Add global memories support to Serena",
+        description="Track the global memories feature across PRs and issues.",
+    )
+
+
+@pytest.fixture
+def linked_work_item(
+    tmp_db: sqlite3.Connection,
+    sample_work_item: WorkItem,
+) -> WorkItem:
+    """A work item with several linked entities."""
+    work_items_db.upsert_link(
+        tmp_db, sample_work_item.id,
+        "https://github.com/oraios/serena/pull/1007", "tracks",
+    )
+    work_items_db.upsert_link(
+        tmp_db, sample_work_item.id,
+        "butterflyskies/tasks#70", "tracks",
+    )
+    work_items_db.upsert_link(
+        tmp_db, sample_work_item.id,
+        "https://github.com/oraios/serena/issues/1055", "blocked_by",
+    )
+    # Refresh to get updated timestamp
+    return work_items_db.get_work_item(tmp_db, sample_work_item.id)  # type: ignore[return-value]
