@@ -472,7 +472,7 @@ def _format_work_item_context(conn: sqlite3.Connection, item: WorkItem) -> str:
             parsed = parse_github_url(link.entity_url)
             number = parsed.number if parsed else None
             notifications = db.find_notifications_by_repo(conn, link.entity_repo, number)
-            for n in notifications[:3]:
+            for n in notifications:
                 if n.thread_id not in seen_threads:
                     seen_threads.add(n.thread_id)
                     status_tag = n.status.value.upper()
