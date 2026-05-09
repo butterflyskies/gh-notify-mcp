@@ -25,7 +25,7 @@ class ParsedGitHubURL:
 _WEB_RE = re.compile(
     r"https?://github\.com/"
     r"(?P<owner>[^/]+)/(?P<repo>[^/]+)"
-    r"(?:/(?P<kind>pull|pulls|issue|issues|discussions|commit|check_suite|actions/runs)/(?P<number>[^/?#]+))?"
+    r"(?:/(?P<kind>pull|pulls|issue|issues|discussions|commit|actions/runs)/(?P<number>[^/?#]+))?"
 )
 
 # Regex for api.github.com URLs:
@@ -49,7 +49,6 @@ _KIND_TO_TYPE = {
     "discussions": "discussion",
     "commit": "commit",
     "commits": "commit",
-    "check_suite": "check_suite",
     "check-suites": "check_suite",
     "check-runs": "check_suite",
     "actions/runs": "check_suite",
