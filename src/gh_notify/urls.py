@@ -25,7 +25,7 @@ class ParsedGitHubURL:
 _WEB_RE = re.compile(
     r"https?://github\.com/"
     r"(?P<owner>[^/]+)/(?P<repo>[^/]+)"
-    r"(?:/(?P<kind>pull|pulls|issue|issues|discussions|commit|checks|actions/runs)/(?P<number>[^/?#]+))?"
+    r"(?:/(?P<kind>pull|pulls|issue|issues|discussions|commit|check_suite|actions/runs)/(?P<number>[^/?#]+))?"
 )
 
 # Regex for api.github.com URLs:
@@ -49,7 +49,6 @@ _KIND_TO_TYPE = {
     "discussions": "discussion",
     "commit": "commit",
     "commits": "commit",
-    "checks": "check_suite",
     "check_suite": "check_suite",
     "check-suites": "check_suite",
     "check-runs": "check_suite",
@@ -158,7 +157,7 @@ def normalize_url(url: str) -> str:
 def detect_entity_type(url_or_ref: str) -> str | None:
     """Detect entity type from a URL, short ref, or work_item:// slug.
 
-    Returns: 'pr', 'issue', 'check_suite', 'work_item', 'repo', or None.
+    Returns: 'pr', 'issue', 'check_suite', 'notification', 'work_item', 'repo', or None.
     """
     if url_or_ref.startswith("work_item://"):
         return "work_item"
