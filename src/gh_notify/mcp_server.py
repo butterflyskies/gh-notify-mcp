@@ -412,9 +412,9 @@ def _resolve_from_parsed(
             lines.append(f"    {link.relationship}: {link.entity_ref or link.entity_url}")
         lines.append("")
 
-    # Cross-reference notifications when we have a specific entity number, or
-    # for repo-level URLs (general context, capped by LIMIT 10 + [:5] display).
-    # Skip for commit URLs (short_ref contains @) where repo-wide results are noise.
+    # Cross-reference notifications — only when we have a number to filter by,
+    # or for repo-level URLs. Without a number, we'd return ALL notifications
+    # for the repo which is noisy and misleading (e.g. for commit URLs).
     if full_repo and (number is not None or "@" not in short_ref):
         notifications = db.find_notifications_by_repo(conn, full_repo, number)
         if notifications:
@@ -468,8 +468,6 @@ def _format_work_item_context(conn: sqlite3.Connection, item: WorkItem) -> str:
     seen_threads: set[str] = set()
     notification_lines: list[str] = []
     for link in links:
-        if len(notification_lines) >= 10:
-            break
         if link.entity_repo:
             parsed = parse_github_url(link.entity_url)
             number = parsed.number if parsed else None
@@ -481,8 +479,6 @@ def _format_work_item_context(conn: sqlite3.Connection, item: WorkItem) -> str:
                     notification_lines.append(
                         f"  [{status_tag}] {n.thread_id} | {n.repo} | {n.reason} | {n.subject_title}"
                     )
-                    if len(notification_lines) >= 10:
-                        break
 
     if notification_lines:
         lines.append("Related notifications:")
