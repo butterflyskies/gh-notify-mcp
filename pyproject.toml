@@ -11,8 +11,8 @@ requires-python = ">=3.12"
 dependencies = []
 
 [project.optional-dependencies]
-mcp = ["mcp>=1.28.1"]
-dev = ["pytest>=8.0", "pytest-asyncio>=0.24"]
+mcp = ["mcp>=1.0"]
+dev = ["pytest>=9.0.3", "pytest-asyncio>=0.24"]
 
 [project.scripts]
 gh-notify-mcp = "gh_notify.mcp_server:main"
